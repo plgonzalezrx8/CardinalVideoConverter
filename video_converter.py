@@ -46,36 +46,31 @@ def get_video_info(input_file):
         print(f"Error: Could not determine video info for {input_file}. Error: {str(e)}")
     return None, None, None
 
-def convert_video(input_file, output_file, target_resolution=(1920, 1080), use_gpu=True):
+def convert_video(input_file, output_file, target_resolution=(1920, 1080), use_gpu=True, target_bitrate="6000k"):
     gpu_available = check_gpu_availability() if use_gpu else False
-
-    # Get original bitrate
-    original_bitrate = get_video_bitrate(input_file)
-    if original_bitrate is None:
-        print("Could not determine original bitrate. Using default settings.")
-        target_bitrate = "1500k"
-    else:
-        # Set target bitrate slightly lower than original
-        target_bitrate = str(int(original_bitrate * 0.8))
-        
+    
     if gpu_available:
         target_codec = 'hevc_nvenc'
         preset = 'p7'  # High-quality preset for NVENC
-        # crf = '28'  # Higher CRF for GPU encoding
+        crf = '25'  # Higher CRF for GPU encoding
     else:
         target_codec = 'libx265'
         preset = 'slower'  # Slower preset for better compression
-        # crf = '23'  # Keep 23 for CPU encoding
+        crf = '23'  # Keep 23 for CPU encoding
+        
+    # Remove 'k' from target_bitrate and convert to integer
+    target_bitrate_value = int(target_bitrate.rstrip('k'))
+    
     try:
         cmd = [
             'ffmpeg', '-i', input_file,
             '-c:v', target_codec,
-            # '-crf', crf,
+            '-crf', crf,
             '-preset', preset,
             '-vf', f'scale={target_resolution[0]}:{target_resolution[1]}',
             '-b:v', target_bitrate,
-            '-maxrate', f"{int(int(target_bitrate) * 1.5)}",
-            '-bufsize', f"{int(int(target_bitrate) * 2)}",
+            '-maxrate', f"{int(target_bitrate_value * 1.5)}k",
+            '-bufsize', f"{int(target_bitrate_value * 2)}k",
             '-c:a', 'copy',
             '-c:s', 'copy', # Copy all subtitle streams
             '-map', '0', # Map all streams from the input file
@@ -95,6 +90,20 @@ def process_video(input_file):
 
     needs_conversion = False
     conversion_reason = []
+    
+    # Get original bitrate
+    original_bitrate = get_video_bitrate(input_file)
+    if original_bitrate is None:
+        print(f"Skipping {input_file} due to bitrate detection failure.")
+        return
+
+    # Convert bitrate from bits per second to kilobits per second
+    original_bitrate_kbps = original_bitrate / 1000
+    
+    if original_bitrate_kbps > 8000:
+        needs_conversion = True
+        conversion_reason.append(f"bitrate is {original_bitrate_kbps:.2f} kb/s (> 8000 kb/s)")
+
 
     if width > 1920 or height > 1080:
         needs_conversion = True
@@ -107,7 +116,7 @@ def process_video(input_file):
     if needs_conversion:
         print(f"Converting {input_file} to 1080p H.265 because: {', '.join(conversion_reason)}.")
         output_file = os.path.splitext(input_file)[0] + "_1080p_h265" + os.path.splitext(input_file)[1]
-        convert_video(input_file, output_file)
+        convert_video(input_file, output_file, target_bitrate="6000k")
         print(f"Conversion complete. Output file: {output_file}")
         
         # Check if the output file exists
@@ -120,7 +129,7 @@ def process_video(input_file):
                 # Compare durations (allow for a small difference due to potential rounding)
                 if abs(input_duration - output_duration) < 5:  # Less than 5 second difference
                     try:
-                        # os.remove(input_file)
+                        os.remove(input_file)
                         print(f"Original file deleted: {input_file}")
                     except OSError as e:
                         print(f"Error: Could not delete original file {input_file}. Error: {str(e)}")
