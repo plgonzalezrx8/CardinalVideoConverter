@@ -53,24 +53,24 @@ def convert_video(input_file, output_file, target_resolution=(1920, 1080), use_g
     original_bitrate = get_video_bitrate(input_file)
     if original_bitrate is None:
         print("Could not determine original bitrate. Using default settings.")
-        target_bitrate = "2M"
+        target_bitrate = "1500k"
     else:
         # Set target bitrate slightly lower than original
-        target_bitrate = str(int(original_bitrate * 0.9)) # 90% of original bitrate
+        target_bitrate = str(int(original_bitrate * 0.8))
         
     if gpu_available:
         target_codec = 'hevc_nvenc'
-        preset = 'p5'  # High-quality preset for NVENC
-        crf = '28'  # Higher CRF for GPU encoding
+        preset = 'p7'  # High-quality preset for NVENC
+        # crf = '28'  # Higher CRF for GPU encoding
     else:
         target_codec = 'libx265'
         preset = 'slower'  # Slower preset for better compression
-        crf = '23'  # Keep 23 for CPU encoding
+        # crf = '23'  # Keep 23 for CPU encoding
     try:
         cmd = [
             'ffmpeg', '-i', input_file,
             '-c:v', target_codec,
-            '-crf', crf,
+            # '-crf', crf,
             '-preset', preset,
             '-vf', f'scale={target_resolution[0]}:{target_resolution[1]}',
             '-b:v', target_bitrate,
