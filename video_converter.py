@@ -99,7 +99,6 @@ def process_video(input_file):
 
     # Convert bitrate from bits per second to kilobits per second
     original_bitrate_kbps = original_bitrate / 1000
-    
     if original_bitrate_kbps > 8000:
         needs_conversion = True
         conversion_reason.append(f"bitrate is {original_bitrate_kbps:.2f} kb/s (> 8000 kb/s)")
@@ -109,7 +108,7 @@ def process_video(input_file):
         needs_conversion = True
         conversion_reason.append("resolution above 1080p")
 
-    if codec.lower() not in ['hevc', 'h265', 'x265']:
+    if (codec.lower() not in ['hevc', 'h265', 'x265']) and (original_bitrate_kbps > 8000):
         needs_conversion = True
         conversion_reason.append(f"codec is {codec} (not H.265)")
 
